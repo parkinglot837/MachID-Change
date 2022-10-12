@@ -1,0 +1,26 @@
+#  This Service is a part of script that changes the identity of a Linux VM.  And does the following
+#   1. Generates a random number which enables the server to generate a unique MachineID
+#   2. Deletes and generates new SSH server key
+#   3. Disables this Service for next Boot
+#   4. Copies the newly generated MachineID to the /var/lib/dbus/ folder
+#
+#  PreRequisites: base Linux OS installed with OpenSSH installed.
+#  Service called within InitializeMachID.sh
+#  Normally Disabled - Enabled only when needed
+
+[Unit]
+Description=Regenerate SSH host keys
+Before=ssh.service
+ConditionFileIsExecutable=/usr/bin/ssh-keygen
+
+[Service]
+Type=oneshot
+ExecStartPre=-/bin/dd if=/dev/hwrng of=/dev/urandom count=1 bs=4096
+ExecStartPre=-/bin/sh -c "/bin/rm -f -v /etc/ssh/ssh_host_*_key*"
+ExecStart=/usr/bin/ssh-keygen -A -v
+ExecStartPost=/bin/systemctl disable regenerate_ssh_host_keys
+
+ExecStartPost=/bin/cp /etc/machine-id /var/lib/dbus/machine-id
+
+[Install]
+WantedBy=multi-user.target

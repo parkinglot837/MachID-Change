@@ -1,7 +1,13 @@
 #!/bin/bash
 
+#  Specifict to Ubuntu Servers 20 - 22, using netplan
+#  edit the netplan YAML file with static IPs for outer network and IPs for Kubernetes communication
+#
+
 sudo cp /etc/netplan/00-installer-config.yaml ~
 sudo mv /etc/netplan/00-installer-config.yaml /etc/netplan/00-installer-config.bak
+echo "Netplan backed up "
+echo ' '
 
 echo "Enter new IP Address / Prefix Length: "
 read ipadd
