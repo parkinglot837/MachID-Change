@@ -10,6 +10,7 @@ With Proxmox VE native **Cloud-Init** support, legacy post-clone interactive scr
 
 Cloud-Init automatically performs the following during the initial VM boot:
 - 👤 **Default User & Sudo**: Configures default user **`ubadmin`** with initial password **`ubadmin`** and full `sudo` privileges.
+- 📦 **Automatic `apt update` & `apt upgrade`**: Runs package updates and upgrades automatically on first boot.
 - 🆔 **Unique Machine ID**: Systemd generates a brand-new, unique `/etc/machine-id` on first boot.
 - 🔑 **Unique SSH Host Keys**: OpenSSH host keys (`/etc/ssh/ssh_host_*`) are regenerated automatically.
 - 🌐 **Network & Static IPs**: IP address, subnet mask, default gateway, and DNS servers are configured automatically based on Proxmox settings.
@@ -152,5 +153,6 @@ When the cloned VM boots up for the first time:
 4. OpenSSH host keys (`/etc/ssh/ssh_host_*`) are regenerated via `cloud-init`'s built-in `cc_ssh` module.
 5. Netplan configuration is written automatically to `/etc/netplan/50-cloud-init.yaml`.
 6. Root filesystem `/` is automatically grown to fill the `scsi0` disk size.
+7. **`apt update` & `apt upgrade`** run automatically in the background on initial boot.
 
 No login or manual script execution is required!

@@ -2,7 +2,8 @@
 # ==============================================================================
 # Script: create-ubuntu24-template.sh
 # Description: Automatically downloads Ubuntu 24.04 LTS Cloud Image, configures
-#              High-Performance CPU/IO options, Cloud-Init, and Proxmox Template.
+#              High-Performance CPU/IO, auto-apt update/upgrade on first boot,
+#              Cloud-Init user/password/sudo, and creates Proxmox Template.
 # Run on: Proxmox VE Host shell (as root)
 # ==============================================================================
 
@@ -46,12 +47,15 @@ else
     echo "    Image already cached at /tmp/${IMAGE_NAME}"
 fi
 
-# Step 2: Install qemu-guest-agent package into image (optional but recommended)
-echo "==> Customizing image with qemu-guest-agent support..."
+# Step 2: Install qemu-guest-agent and configure automatic apt update/upgrade on first boot
+echo "==> Customizing image with qemu-guest-agent & auto apt-update/upgrade..."
 if command -v virt-customize &> /dev/null; then
-    virt-customize -a "/tmp/${IMAGE_NAME}" --install qemu-guest-agent
+    virt-customize -a "/tmp/${IMAGE_NAME}" \
+        --install qemu-guest-agent \
+        --write "/etc/cloud/cloud.cfg.d/99-custom-apt.cfg:package_update: true
+package_upgrade: true"
 else
-    echo "    (virt-customize not installed, skipping pre-installation of qemu-guest-agent)"
+    echo "    (virt-customize not installed, skipping pre-customization)"
 fi
 
 # Step 3: Create Proxmox VM shell with Host CPU & High-Performance VirtIO SCSI
@@ -89,10 +93,10 @@ echo " Default Credentials & Sudo Access:"
 echo "   Username: $CI_USER"
 echo "   Password: $CI_PASSWORD"
 echo "   Sudo:     Full sudo access enabled"
-echo " Performance Optimizations:"
+echo " Performance & First-Boot Automation:"
 echo "   CPU Type: Host (Native Passthrough)"
-echo "   SCSI Controller: virtio-scsi-single"
-echo "   Disk Options: IOThread=1, Discard=on"
+echo "   SCSI Controller: virtio-scsi-single (IOThread=1, Discard=on)"
+echo "   First Boot: Automatic 'apt update' & 'apt upgrade'"
 echo "======================================================================"
 echo "You can now clone this template to deploy new VMs instantly:"
 echo ""
