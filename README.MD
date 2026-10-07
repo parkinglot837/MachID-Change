@@ -9,6 +9,7 @@ This repository provides instructions and automation to streamline the rapid dep
 With Proxmox VE native **Cloud-Init** support, legacy post-clone interactive scripts (manual machine-id blanking, netplan YAML editing, and SSH host key regeneration) are obsolete.
 
 Cloud-Init automatically performs the following during the initial VM boot:
+- 👤 **Default User & Sudo**: Configures default user **`ubadmin`** with initial password **`ubadmin`** and full `sudo` privileges.
 - 🆔 **Unique Machine ID**: Systemd generates a brand-new, unique `/etc/machine-id` on first boot.
 - 🔑 **Unique SSH Host Keys**: OpenSSH host keys (`/etc/ssh/ssh_host_*`) are regenerated automatically.
 - 🌐 **Network & Static IPs**: IP address, subnet mask, default gateway, and DNS servers are configured automatically based on Proxmox settings.
@@ -28,11 +29,16 @@ chmod +x create-ubuntu24-template.sh
 sudo ./create-ubuntu24-template.sh
 ```
 
+### Default Credentials:
+- **Username**: `ubadmin`
+- **Password**: `ubadmin`
+- **Sudo Access**: Enabled (`sudo` group)
+
 ### Customizing Template Defaults (Optional):
 You can override default settings using environment variables:
 
 ```bash
-VM_ID=9000 VM_NAME="ubuntu-2404-template" STORAGE="local-lvm" DISK_SIZE="30G" ./create-ubuntu24-template.sh
+VM_ID=9000 VM_NAME="ubuntu-2404-template" STORAGE="local-lvm" DISK_SIZE="30G" CI_USER="ubadmin" CI_PASSWORD="ubadmin" ./create-ubuntu24-template.sh
 ```
 
 ---
@@ -52,8 +58,9 @@ qm create 9000 --name ubuntu-2404-cloudinit-template --memory 2048 --cores 2 --n
 qm set 9000 --scsihw virtio-scsi-pci
 qm set 9000 --scsi0 local-lvm:0,import-from=/tmp/ubuntu-24.04.img
 
-# 4. Attach Cloud-Init drive & set boot device
+# 4. Attach Cloud-Init drive, set user 'ubadmin', password 'ubadmin', & boot disk
 qm set 9000 --ide2 local-lvm:cloudinit
+qm set 9000 --ciuser ubadmin --cipassword ubadmin
 qm set 9000 --boot c --bootdisk scsi0
 qm set 9000 --serial0 socket --vga serial0
 
@@ -86,8 +93,6 @@ If different VMs require different disk sizes (e.g., VM 101 needs 50 GB), resize
 - **Web GUI**:
   Select VM `101` -> **Hardware** -> click **Hard Disk (scsi0)** -> click **Disk Action** -> **Resize** -> enter additional size (e.g. `20` for +20 GB).
 
-> 💡 **Auto-Growth Feature**: When the VM boots up for the first time, Ubuntu 24.04's `cloud-init` automatically resizes the root partition and filesystem to 100% of the allocated disk space. No manual partition editing inside Linux is needed!
-
 ---
 
 ## ⚡ Deploying a New VM in Seconds
@@ -108,8 +113,8 @@ qm disk resize 101 scsi0 50G
 # 3. Configure Static IP, Gateway, and Hostname
 qm set 101 --ipconfig0 ip=192.168.1.50/24,gw=192.168.1.1 --nameserver 1.1.1.1
 
-# 4. Inject SSH Public Key & User
-qm set 101 --ciuser ubuntu --sshkeys ~/.ssh/id_rsa.pub
+# 4. Inject SSH Public Key & User (defaults to ubadmin)
+qm set 101 --ciuser ubadmin --sshkeys ~/.ssh/id_rsa.pub
 
 # 5. Start the VM
 qm start 101
@@ -127,8 +132,9 @@ qm start 101
 4. (Optional) Go to **Hardware** tab -> click **Hard Disk (scsi0)** -> **Disk Action** -> **Resize** to enlarge disk.
 5. Select VM `101` -> Go to **Cloud-Init** tab in the left panel.
 6. Set:
-   - **User**: `ubuntu` (or preferred username)
-   - **Password / SSH Public Key**: Paste your public key.
+   - **User**: `ubadmin`
+   - **Password**: `ubadmin`
+   - **SSH Public Key**: Paste your public key.
    - **IP Config (net0)**: Choose `Static` and enter `192.168.1.50/24` & Gateway `192.168.1.1`.
    - **DNS Domain / Servers**: Optional custom DNS.
 7. Click **Regenerate Image** (if prompted) and **Start** the VM.
@@ -139,9 +145,10 @@ qm start 101
 
 When the cloned VM boots up for the first time:
 1. Cloud-Init reads Proxmox settings from the virtual drive attached to `--ide2`.
-2. `/etc/machine-id` is initialized automatically by `systemd`.
-3. OpenSSH host keys (`/etc/ssh/ssh_host_*`) are regenerated via `cloud-init`'s built-in `cc_ssh` module.
-4. Netplan configuration is written automatically to `/etc/netplan/50-cloud-init.yaml`.
-5. Root filesystem `/` is automatically grown to fill the `scsi0` disk size.
+2. User **`ubadmin`** is created with initial password **`ubadmin`** and added to the `sudo` group.
+3. `/etc/machine-id` is initialized automatically by `systemd`.
+4. OpenSSH host keys (`/etc/ssh/ssh_host_*`) are regenerated via `cloud-init`'s built-in `cc_ssh` module.
+5. Netplan configuration is written automatically to `/etc/netplan/50-cloud-init.yaml`.
+6. Root filesystem `/` is automatically grown to fill the `scsi0` disk size.
 
 No login or manual script execution is required!

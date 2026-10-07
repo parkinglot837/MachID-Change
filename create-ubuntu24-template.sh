@@ -2,7 +2,7 @@
 # ==============================================================================
 # Script: create-ubuntu24-template.sh
 # Description: Automatically downloads Ubuntu 24.04 LTS Cloud Image, configures
-#              Cloud-Init, sets disk size, and creates a Proxmox VE VM Template.
+#              Cloud-Init, sets user/password/sudo, and creates Proxmox Template.
 # Run on: Proxmox VE Host shell (as root)
 # ==============================================================================
 
@@ -16,6 +16,8 @@ DISK_SIZE="${DISK_SIZE:-30G}"
 BRIDGE="${BRIDGE:-vmbr0}"
 MEMORY="${MEMORY:-2048}"
 CORES="${CORES:-2}"
+CI_USER="${CI_USER:-ubadmin}"
+CI_PASSWORD="${CI_PASSWORD:-ubadmin}"
 UBUNTU_RELEASE="noble" # Ubuntu 24.04 LTS
 IMAGE_NAME="ubuntu-24.04-server-cloudimg-amd64.img"
 IMAGE_URL="https://cloud-images.ubuntu.com/releases/24.04/release/${IMAGE_NAME}"
@@ -68,9 +70,10 @@ qm set "$VM_ID" --scsihw virtio-scsi-pci
 qm set "$VM_ID" --scsi0 "${STORAGE}:0,import-from=/tmp/${IMAGE_NAME}"
 qm disk resize "$VM_ID" scsi0 "$DISK_SIZE"
 
-# Step 5: Add Cloud-Init drive & configure boot settings
-echo "==> Configuring Cloud-Init drive and boot order..."
+# Step 5: Add Cloud-Init drive, set user/password with sudo, & configure boot settings
+echo "==> Configuring Cloud-Init drive, user '$CI_USER' with sudo, and boot order..."
 qm set "$VM_ID" --ide2 "${STORAGE}:cloudinit"
+qm set "$VM_ID" --ciuser "$CI_USER" --cipassword "$CI_PASSWORD"
 qm set "$VM_ID" --boot c --bootdisk scsi0
 qm set "$VM_ID" --serial0 socket --vga serial0
 
@@ -80,6 +83,11 @@ qm template "$VM_ID"
 
 echo "======================================================================"
 echo " [✓] Ubuntu 24.04 LTS Template (ID: $VM_ID) created successfully!"
+echo "======================================================================"
+echo " Default Credentials & Sudo Access:"
+echo "   Username: $CI_USER"
+echo "   Password: $CI_PASSWORD"
+echo "   Sudo:     Full sudo access enabled"
 echo "======================================================================"
 echo "You can now clone this template to deploy new VMs instantly:"
 echo ""
