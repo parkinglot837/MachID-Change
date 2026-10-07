@@ -2,7 +2,7 @@
 # ==============================================================================
 # Script: create-ubuntu24-template.sh
 # Description: Automatically downloads Ubuntu 24.04 LTS Cloud Image, configures
-#              Cloud-Init, sets user/password/sudo, and creates Proxmox Template.
+#              High-Performance CPU/IO options, Cloud-Init, and Proxmox Template.
 # Run on: Proxmox VE Host shell (as root)
 # ==============================================================================
 
@@ -54,20 +54,21 @@ else
     echo "    (virt-customize not installed, skipping pre-installation of qemu-guest-agent)"
 fi
 
-# Step 3: Create Proxmox VM shell
-echo "==> Creating VM $VM_ID ($VM_NAME)..."
+# Step 3: Create Proxmox VM shell with Host CPU & High-Performance VirtIO SCSI
+echo "==> Creating VM $VM_ID ($VM_NAME) with Host CPU & VirtIO Single SCSI..."
 qm create "$VM_ID" \
     --name "$VM_NAME" \
     --memory "$MEMORY" \
     --cores "$CORES" \
+    --cpu host \
+    --scsihw virtio-scsi-single \
     --net0 "virtio,bridge=${BRIDGE}" \
     --ostype l26 \
     --agent enabled=1
 
-# Step 4: Import Cloud Disk to Proxmox Storage & Resize
-echo "==> Importing disk to $STORAGE and expanding to $DISK_SIZE..."
-qm set "$VM_ID" --scsihw virtio-scsi-pci
-qm set "$VM_ID" --scsi0 "${STORAGE}:0,import-from=/tmp/${IMAGE_NAME}"
+# Step 4: Import Cloud Disk with IOThread + Discard enabled, & Resize
+echo "==> Importing disk to $STORAGE (with IOThread + Discard) and expanding to $DISK_SIZE..."
+qm set "$VM_ID" --scsi0 "${STORAGE}:0,import-from=/tmp/${IMAGE_NAME},iothread=1,discard=on"
 qm disk resize "$VM_ID" scsi0 "$DISK_SIZE"
 
 # Step 5: Add Cloud-Init drive, set user/password with sudo, & configure boot settings
@@ -82,12 +83,16 @@ echo "==> Converting VM $VM_ID to Template..."
 qm template "$VM_ID"
 
 echo "======================================================================"
-echo " [✓] Ubuntu 24.04 LTS Template (ID: $VM_ID) created successfully!"
+echo " [✓] Ubuntu 24.04 LTS High-Performance Template (ID: $VM_ID) Created!"
 echo "======================================================================"
 echo " Default Credentials & Sudo Access:"
 echo "   Username: $CI_USER"
 echo "   Password: $CI_PASSWORD"
 echo "   Sudo:     Full sudo access enabled"
+echo " Performance Optimizations:"
+echo "   CPU Type: Host (Native Passthrough)"
+echo "   SCSI Controller: virtio-scsi-single"
+echo "   Disk Options: IOThread=1, Discard=on"
 echo "======================================================================"
 echo "You can now clone this template to deploy new VMs instantly:"
 echo ""

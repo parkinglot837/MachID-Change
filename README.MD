@@ -46,20 +46,43 @@ VM_ID=9000 VM_NAME="ubuntu-2404-template" STORAGE="local-lvm" DISK_SIZE="30G" CI
 
 ---
 
-## 📋 Method 2: Manual Proxmox CLI Step-by-Step
+## ⚡ Performance Optimization Guide (Fixing Slow `apt update/upgrade`)
 
-If you prefer setting up the template manually on your Proxmox host:
+If `apt update` or `apt upgrade` feels very slow on a newly cloned VM despite adding CPU/RAM, the bottleneck is usually **CPU instruction emulation** or **disk I/O queuing**, rather than raw CPU cores or RAM.
+
+### 1. CPU Emulation Bottleneck (`kvm64` vs `host`)
+- **The Problem**: By default, Proxmox creates VMs with CPU type `kvm64` (a generic QEMU CPU model). It lacks native CPU instruction sets like AVX, SSE4.2, and AES-NI. Package unpacking during `apt upgrade` requires heavy decompression, which consumes massive CPU time under `kvm64`.
+- **The Fix**: Set CPU type to **`host`** (passthrough native CPU instructions):
+  ```bash
+  qm set <VM_ID> --cpu host
+  ```
+
+### 2. Disk I/O & Controller Bottlenecks (`iothread` & `virtio-scsi-single`)
+- **The Problem**: Without `IOThread`, QEMU handles all disk I/O on a single main thread loop. Unpacking hundreds of small `.deb` files locks the VM's main thread during disk writes.
+- **The Fix**: Use `virtio-scsi-single` and enable `iothread=1,discard=on`:
+  ```bash
+  qm set <VM_ID> --scsihw virtio-scsi-single
+  qm set <VM_ID> --scsi0 <STORAGE>:<DISK_ID>,iothread=1,discard=on
+  ```
+
+### 3. Thin Provisioning Overhead
+- On thin-provisioned storage (`local-lvm`, ZFS, or `proxlake`), writing new data for the first time requires Proxmox to allocate storage chunks on the fly. Enabling `discard=on` (TRIM) allows Linux to efficiently manage thin-provisioned blocks.
+
+---
+
+## 📋 Method 2: Manual Proxmox CLI Step-by-Step (With Optimizations)
+
+If setting up the template manually, apply these high-performance options:
 
 ```bash
 # 1. Download official Ubuntu 24.04 LTS Minimal Cloud Image
 wget https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img -O /tmp/ubuntu-24.04.img
 
-# 2. Create VM shell (VM ID 9000)
-qm create 9000 --name ubuntu-2404-cloudinit-template --memory 2048 --cores 2 --net0 virtio,bridge=vmbr0 --agent enabled=1
+# 2. Create VM shell with Host CPU & virtio-scsi-single
+qm create 9000 --name ubuntu-2404-cloudinit-template --memory 2048 --cores 2 --cpu host --scsihw virtio-scsi-single --net0 virtio,bridge=vmbr0 --agent enabled=1
 
-# 3. Import cloud disk to storage (e.g., local-lvm)
-qm set 9000 --scsihw virtio-scsi-pci
-qm set 9000 --scsi0 local-lvm:0,import-from=/tmp/ubuntu-24.04.img
+# 3. Import cloud disk with IOThread & Discard enabled
+qm set 9000 --scsi0 local-lvm:0,import-from=/tmp/ubuntu-24.04.img,iothread=1,discard=on
 
 # 4. Attach Cloud-Init drive, set user 'ubadmin', password 'ubadmin', & boot disk
 qm set 9000 --ide2 local-lvm:cloudinit
