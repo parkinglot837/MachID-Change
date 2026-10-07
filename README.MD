@@ -66,11 +66,17 @@ qm template 9000
 
 Once your template is created, deploy and customize new Ubuntu 24.04 VMs using either **Proxmox CLI** or the **Proxmox Web GUI**.
 
-### Option A: Proxmox CLI (`qm` commands)
+### 💾 Specifying Target Storage for VM Disks (e.g. `proxlake`)
+
+You can easily place the cloned VM's `scsi0` disk onto a specific storage target (such as `proxlake` or any other storage pool), even if the template itself was created on `local-lvm`.
+
+#### Option A: Proxmox CLI (`qm` commands)
+
+Pass `--storage proxlake` (with `--full`) when cloning the template:
 
 ```bash
-# 1. Clone template (ID 9000) to a new VM (ID 101)
-qm clone 9000 101 --name k8s-node-01
+# 1. Clone template (ID 9000) to new VM (ID 101) with disk on 'proxlake'
+qm clone 9000 101 --name k8s-node-01 --storage proxlake --full
 
 # 2. Configure Static IP, Gateway, and Hostname
 qm set 101 --ipconfig0 ip=192.168.1.50/24,gw=192.168.1.1 --nameserver 1.1.1.1
@@ -82,17 +88,27 @@ qm set 101 --ciuser ubuntu --sshkeys ~/.ssh/id_rsa.pub
 qm start 101
 ```
 
-### Option B: Proxmox Web GUI
+> **Note**: If a VM was already cloned onto another storage, you can move its `scsi0` disk to `proxlake` anytime using:
+> ```bash
+> qm disk move 101 scsi0 proxlake --delete
+> ```
+
+#### Option B: Proxmox Web GUI
 
 1. Right-click template `ubuntu-2404-cloudinit-template (9000)` -> **Clone**.
-2. Specify the **VM ID** (e.g. `101`) and **Name** (e.g. `k8s-node-01`).
-3. Select the new VM -> Go to **Cloud-Init** tab in the left panel.
-4. Set:
+2. Specify:
+   - **Mode**: Full Clone
+   - **Target Storage**: Select `proxlake` from the dropdown.
+   - **VM ID**: `101`
+   - **Name**: `k8s-node-01`
+3. Click **Clone**.
+4. Select the new VM `101` -> Go to **Cloud-Init** tab in the left panel.
+5. Set:
    - **User**: `ubuntu` (or preferred username)
    - **Password / SSH Public Key**: Paste your public key.
    - **IP Config (net0)**: Choose `Static` and enter `192.168.1.50/24` & Gateway `192.168.1.1`.
    - **DNS Domain / Servers**: Optional custom DNS.
-5. Click **Regenerate Image** (if prompted) and **Start** the VM.
+6. Click **Regenerate Image** (if prompted) and **Start** the VM.
 
 ---
 
