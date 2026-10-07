@@ -2,7 +2,7 @@
 # ==============================================================================
 # Script: create-ubuntu24-template.sh
 # Description: Automatically downloads Ubuntu 24.04 LTS Cloud Image, configures
-#              Cloud-Init, and creates a Proxmox VE VM Template.
+#              Cloud-Init, sets disk size, and creates a Proxmox VE VM Template.
 # Run on: Proxmox VE Host shell (as root)
 # ==============================================================================
 
@@ -12,6 +12,7 @@ set -euo pipefail
 VM_ID="${VM_ID:-9000}"
 VM_NAME="${VM_NAME:-ubuntu-2404-cloudinit-template}"
 STORAGE="${STORAGE:-local-lvm}"
+DISK_SIZE="${DISK_SIZE:-30G}"
 BRIDGE="${BRIDGE:-vmbr0}"
 MEMORY="${MEMORY:-2048}"
 CORES="${CORES:-2}"
@@ -61,10 +62,11 @@ qm create "$VM_ID" \
     --ostype l26 \
     --agent enabled=1
 
-# Step 4: Import Cloud Disk to Proxmox Storage
-echo "==> Importing disk to $STORAGE..."
+# Step 4: Import Cloud Disk to Proxmox Storage & Resize
+echo "==> Importing disk to $STORAGE and expanding to $DISK_SIZE..."
 qm set "$VM_ID" --scsihw virtio-scsi-pci
 qm set "$VM_ID" --scsi0 "${STORAGE}:0,import-from=/tmp/${IMAGE_NAME}"
+qm disk resize "$VM_ID" scsi0 "$DISK_SIZE"
 
 # Step 5: Add Cloud-Init drive & configure boot settings
 echo "==> Configuring Cloud-Init drive and boot order..."
@@ -81,8 +83,13 @@ echo " [✓] Ubuntu 24.04 LTS Template (ID: $VM_ID) created successfully!"
 echo "======================================================================"
 echo "You can now clone this template to deploy new VMs instantly:"
 echo ""
-echo "  # Clone to target storage (e.g. proxlake):"
+echo "  # 1. Clone template to target storage (e.g., proxlake):"
 echo "  qm clone $VM_ID 101 --name my-ubuntu-vm --storage proxlake --full"
+echo ""
+echo "  # 2. (Optional) Resize disk for this specific VM (e.g. to 50G):"
+echo "  qm disk resize 101 scsi0 50G"
+echo ""
+echo "  # 3. Configure network and SSH keys:"
 echo "  qm set 101 --ipconfig0 ip=192.168.1.50/24,gw=192.168.1.1"
 echo "  qm set 101 --sshkeys ~/.ssh/id_rsa.pub"
 echo "  qm start 101"
