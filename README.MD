@@ -34,6 +34,9 @@ sudo ./create-ubuntu24-template.sh
 - **Password**: `ubadmin`
 - **Sudo Access**: Enabled (`sudo` group)
 
+> [!WARNING]
+> **SECURITY NOTICE**: The default password for `ubadmin` is set to **`ubadmin`**. You **MUST** change this password immediately upon initial login (`passwd ubadmin`) or inject your SSH public key via Cloud-Init to ensure your environment remains secure!
+
 ### Customizing Template Defaults (Optional):
 You can override default settings using environment variables:
 
